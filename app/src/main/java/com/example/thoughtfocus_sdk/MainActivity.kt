@@ -130,7 +130,6 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("Cancel", null)
             .create()
 
-        // Show the dialog
         dialog.show()
     }
 
