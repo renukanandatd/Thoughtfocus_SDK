@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.ListView
@@ -21,20 +22,24 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import com.bbpos.bbdevice.BBDeviceController
+import com.bbpos.bbdevice.CAPK
+import com.example.thoughtfocusmainsdk.MainSDKClass
 import com.google.android.material.navigation.NavigationView
 import java.io.IOException
+import java.util.Arrays
+import java.util.Hashtable
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var showDeviceListButton: Button
     private lateinit var discoverDevicesButton: Button
     private lateinit var bluetoothAdapter: BluetoothAdapter
     private lateinit var pairedDevicesListView: ListView
     private lateinit var deviceListAdapter: ArrayAdapter<String>
     private lateinit var pairedDevices : Set<BluetoothDevice>
-    private lateinit var connectedDeviceTextView: TextView
-    val bbDeviceController : BBDeviceController? = null
-
+    private lateinit var statusTextView: TextView
+    var bbDeviceController : BBDeviceController? = null
+    var mainSDKClass : MainSDKClass? = null
+    var uid: String? = null
     lateinit var toggle: ActionBarDrawerToggle
     private lateinit var drawerLayout: DrawerLayout
 
@@ -44,6 +49,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         drawerLayout = findViewById<DrawerLayout>(R.id.drawer_layout)
+
 
         toggle = ActionBarDrawerToggle(
             this, drawerLayout,
@@ -55,10 +61,12 @@ class MainActivity : AppCompatActivity() {
 
         val navigationView:NavigationView = findViewById<NavigationView>(R.id.nav_view)
 
-        connectedDeviceTextView = findViewById(R.id.textView)
+        statusTextView = findViewById(R.id.textView)
         discoverDevicesButton = findViewById(R.id.discoverDevicesButton)
         pairedDevicesListView = ListView(this)
         deviceListAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1)
+
+
 
 
         navigationView.setNavigationItemSelectedListener {
@@ -106,11 +114,17 @@ class MainActivity : AppCompatActivity() {
         }
         }
 
+        mainSDKClass = MainSDKClass()
         // Create the dialog
         val dialog = AlertDialog.Builder(this)
             .setTitle("Paired Bluetooth Devices")
             .setAdapter(deviceListAdapter, DialogInterface.OnClickListener { _, position ->
-                bbDeviceController?.connectBT(pairedDevices.elementAtOrNull(position))
+                pairedDevices.elementAtOrNull(position)?.let { bbDeviceController?.connectBT(it) }
+                bbDeviceController?.getDeviceInfo()
+                Log.e("Bluetooth connected info",bbDeviceController?.getDeviceInfo().toString())
+                //BBDeviceControllerListener.onBTConnected(pairedDevices.elementAtOrNull(position))
+
+              //bbDeviceController?.connectBT(pairedDevices.elementAtOrNull(position))
                 connectToDevice(pairedDevices.elementAtOrNull(position))
             })
             .setNegativeButton("Cancel", null)
@@ -135,7 +149,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val dialog = AlertDialog.Builder(this)
-            .setTitle("Paired Bluetooth Devices")
+            .setTitle("Discover Bluetooth Devices")
             .setAdapter(deviceListAdapter, DialogInterface.OnClickListener { _, position ->
                 bbDeviceController?.connectBT(pairedDevices.elementAtOrNull(position))
                 connectToDevice(pairedDevices.elementAtOrNull(position))
@@ -234,9 +248,9 @@ class MainActivity : AppCompatActivity() {
             try {
                 if (checkBluetoothPermission()) {
                     var connectedDeviceInfo = "Connected to: ${device.name} (${device.address})"
-                    connectedDeviceTextView.text = connectedDeviceInfo
-                    findViewById<TextView>(R.id.connectedDevice).text = connectedDeviceInfo
-                    //connectedDeviceTextView.text = bbDeviceController?.getDeviceInfo().toString()
+                    findViewById<TextView>(R.id.connectedDevice).text = connectedDeviceInfo.toString()
+                    //bbDeviceControllerListener?.onReturnDeviceInfo()
+
                 }
                 } catch (e: IOException) {
                     // Handle connection error
@@ -245,6 +259,499 @@ class MainActivity : AppCompatActivity() {
                 }
         }
         }
+
+    private  var MyBBDeviceControllerListener : BBDeviceController.BBDeviceControllerListener = object :
+    BBDeviceController.BBDeviceControllerListener{
+
+       val mainActivity : MainActivity? = null
+
+        override fun onWaitingForCard(p0: BBDeviceController.CheckCardMode?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onWaitingReprintOrPrintNext() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onBTReturnScanResults(p0: MutableList<BluetoothDevice>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onBTScanTimeout() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onBTScanStopped() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onBTConnected(p0: BluetoothDevice?) {
+            //statusEditText.setText(getString(R.string.bluetooth_connected) + ": " + bluetoothDevice.getAddress())
+            //sessionData.reset()
+            mainActivity?.bbDeviceController?.getDeviceInfo()
+        }
+
+        override fun onBTDisconnected() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onBTRequestPairing() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onUsbConnected() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onUsbDisconnected() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onSerialConnected() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onSerialDisconnected() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnCheckCardResult(
+            p0: BBDeviceController.CheckCardResult?,
+            p1: Hashtable<String, String>?
+        ) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnCancelCheckCardResult(p0: Boolean) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnDeviceInfo(deviceInfoData: Hashtable<String, String> ) {
+            if (deviceInfoData != null) {
+                mainActivity?.uid = deviceInfoData.get("uid")
+            }
+            val productId: String? = deviceInfoData?.get("productID")
+            //sessionData.setProductId(productId)
+
+            var content = ""
+            val keys: Array<String>? = deviceInfoData?.keys?.toTypedArray()
+            Arrays.sort(keys)
+            if (keys != null) {
+                for (key in keys) {
+                    content += "\n$key : "
+                    val obj: String? = deviceInfoData.get(key)
+                    content += obj as String
+                    if ((key as String).equals("vendorID", ignoreCase = true)) {
+                        try {
+                            val vendorID: String = deviceInfoData.get("vendorID")!!
+                            var vendorIDAscii = ""
+                            if (vendorID != null && vendorID != "") {
+                                if (!vendorID.substring(0, 2).equals("00", ignoreCase = true)) {
+                                   // vendorIDAscii = Utils.hexString2AsciiString(vendorID)
+                                    content += """
+        ${key as String} (ASCII) : $vendorID"""
+                                }
+                            }
+                        } catch (e: Exception) {
+                        }
+                    }
+                }
+            }
+            mainActivity?.statusTextView?.setText(content)
+        }
+
+        override fun onReturnTransactionResult(p0: BBDeviceController.TransactionResult?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnBatchData(p0: String?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnReversalData(p0: String?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnAmountConfirmResult(p0: Boolean) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnPinEntryResult(
+            p0: BBDeviceController.PinEntryResult?,
+            p1: Hashtable<String, String>?
+        ) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnPrintResult(p0: BBDeviceController.PrintResult?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnAccountSelectionResult(
+            p0: BBDeviceController.AccountSelectionResult?,
+            p1: Int
+        ) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnAmount(
+            p0: BBDeviceController.AmountInputResult?,
+            p1: Hashtable<String, String>?
+        ) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnUpdateAIDResult(p0: Hashtable<String, Any>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnUpdateTerminalSettingResult(p0: BBDeviceController.TerminalSettingStatus?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnUpdateTerminalSettingsResult(p0: Hashtable<String, BBDeviceController.TerminalSettingStatus>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnUpdateDisplayStringResult(p0: Boolean, p1: String?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnReadDisplayStringResult(p0: Boolean, p1: Hashtable<String, String>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnReadDisplaySettingsResult(p0: Boolean, p1: Hashtable<String, Any>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnReadAIDResult(p0: Hashtable<String, Any>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnReadTerminalSettingResult(p0: Hashtable<String, Any>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnEnableAccountSelectionResult(p0: Boolean) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnEnableInputAmountResult(p0: Boolean) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnEnableBluetoothResult(p0: Boolean) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnCAPKList(p0: MutableList<CAPK>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnCAPKDetail(p0: CAPK?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnCAPKLocation(p0: String?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnUpdateCAPKResult(p0: Boolean) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnRemoveCAPKResult(p0: Boolean) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnEmvReportList(p0: Hashtable<String, String>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnEmvReport(p0: String?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnDisableAccountSelectionResult(p0: Boolean) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnDisableInputAmountResult(p0: Boolean) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnDisableBluetoothResult(p0: Boolean) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnPhoneNumber(p0: BBDeviceController.PhoneEntryResult?, p1: String?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnEmvCardDataResult(p0: Boolean, p1: String?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnEmvCardNumber(p0: Boolean, p1: String?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnEncryptPinResult(p0: Boolean, p1: Hashtable<String, String>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnEncryptDataResult(p0: Boolean, p1: Hashtable<String, String>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnInjectSessionKeyResult(p0: Boolean, p1: Hashtable<String, String>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnPowerOnIccResult(p0: Boolean, p1: String?, p2: String?, p3: Int) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnPowerOffIccResult(p0: Boolean) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnApduResult(p0: Boolean, p1: Hashtable<String, Any>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestSelectApplication(p0: ArrayList<String>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestSelectAccountType() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestSetAmount() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestOtherAmount(p0: BBDeviceController.AmountInputType?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestPinEntry(p0: BBDeviceController.PinEntrySource?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestManualPanEntry(p0: BBDeviceController.ManualPanEntryType?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnSetPinPadButtonsResult(p0: Boolean) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnSetPinPadOrientationResult(p0: Boolean) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnAccessiblePINPadTouchEvent(p0: BBDeviceController.PinPadTouchEvent?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnUpdateDisplaySettingsProgress(p0: Double) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnUpdateDisplaySettingsResult(p0: Boolean, p1: String?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestOnlineProcess(p0: String?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestTerminalTime() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestDisplayText(p0: BBDeviceController.DisplayText?, p1: String?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestDisplayAsterisk(p0: String?, p1: Int) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestDisplayLEDIndicator(p0: BBDeviceController.ContactlessStatus?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestProduceAudioTone(p0: BBDeviceController.ContactlessStatusTone?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestClearDisplay() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestFinalConfirm() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestAmountConfirm(p0: Hashtable<String, String>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestPrintData(p0: Int, p1: Boolean) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onPrintDataCancelled() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onPrintDataEnd() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onBatteryLow(p0: BBDeviceController.BatteryStatus?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onError(p0: BBDeviceController.Error?, p1: String?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onSessionInitialized() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onSessionError(p0: BBDeviceController.SessionError?, p1: String?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnDebugLog(p0: Hashtable<String, Any>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onDeviceHere(p0: Boolean) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onPowerDown() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onPowerButtonPressed() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onPowerConnected(
+            p0: BBDeviceController.PowerSource?,
+            p1: BBDeviceController.BatteryStatus?
+        ) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onPowerDisconnected(p0: BBDeviceController.PowerSource?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onDeviceReset(p0: Boolean, p1: BBDeviceController.DeviceResetReason?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onDeviceResetAlert(p0: Int) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onEnterStandbyMode() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnWatchdogTimerReset() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnNfcDataExchangeResult(p0: Boolean, p1: Hashtable<String, String>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnNfcDetectCardResult(
+            p0: BBDeviceController.NfcDetectCardResult?,
+            p1: Hashtable<String, Any>?
+        ) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnControlLEDResult(p0: Boolean, p1: String?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnVasResult(
+            p0: BBDeviceController.VASResult?,
+            p1: Hashtable<String, Any>?
+        ) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestStartEmv() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onDeviceDisplayingPrompt() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestKeypadResponse() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnDisplayPromptResult(p0: BBDeviceController.DisplayPromptResult?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnFunctionKey(p0: BBDeviceController.FunctionKey?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onHardwareFunctionalTestResult(p0: Int, p1: Int, p2: String?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onBarcodeReaderConnected() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onBarcodeReaderDisconnected() {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnBarcode(p0: String?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestVirtuCryptPEDIResponse(p0: Boolean, p1: Hashtable<String, String>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnVirtuCryptPEDICommandResult(
+            p0: Boolean,
+            p1: Hashtable<String, String>?
+        ) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onRequestVirtuCryptPEDKResponse(p0: Boolean, p1: Hashtable<String, String>?) {
+            TODO("Not yet implemented")
+        }
+
+        override fun onReturnVirtuCryptPEDKCommandResult(
+            p0: Boolean,
+            p1: Hashtable<String, String>?
+        ) {
+            TODO("Not yet implemented")
+        }
+    }
     }
 
 
